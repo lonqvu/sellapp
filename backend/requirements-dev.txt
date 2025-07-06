@@ -1,0 +1,25 @@
+# Development requirements - no database drivers needed for SQLite
+Django==4.2.7
+django-environ==0.11.2
+gunicorn==21.2.0
+whitenoise==6.6.0
+django-cors-headers==4.3.1
+djangorestframework==3.14.0
+Pillow
+celery==5.3.4
+redis==5.0.1
+django-celery-beat==2.5.0
+django-celery-results==2.5.1
+django-filter==23.5
+django-extensions==3.2.3
+django-debug-toolbar==4.2.0
+
+# Optional: Add these if you want to use a different database
+# For PostgreSQL:
+# psycopg2-binary==2.9.7
+
+# For MySQL (requires MySQL server):
+# mysqlclient==2.2.0
+
+# For MariaDB (requires MariaDB Connector/C):
+# mariadb==1.1.9 

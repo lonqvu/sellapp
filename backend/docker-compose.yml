@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # MariaDB Database
+  db:
+    image: mariadb:10.11
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: sellapp_db
+      MYSQL_USER: sellapp_user
+      MYSQL_PASSWORD: sellapp_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Django Application
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql://sellapp_user:sellapp_password@db:3306/sellapp_db
+      - DB_NAME=sellapp_db
+      - DB_USER=sellapp_user
+      - DB_PASSWORD=sellapp_password
+      - DB_HOST=db
+      - DB_PORT=3306
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+
+  # Celery Worker
+  celery:
+    build: .
+    command: celery -A myproject worker -l info
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=mysql://sellapp_user:sellapp_password@db:3306/sellapp_db
+      - DB_NAME=sellapp_db
+      - DB_USER=sellapp_user
+      - DB_PASSWORD=sellapp_password
+      - DB_HOST=db
+      - DB_PORT=3306
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+
+  # Celery Beat
+  celery-beat:
+    build: .
+    command: celery -A myproject beat -l info
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=mysql://sellapp_user:sellapp_password@db:3306/sellapp_db
+      - DB_NAME=sellapp_db
+      - DB_USER=sellapp_user
+      - DB_PASSWORD=sellapp_password
+      - DB_HOST=db
+      - DB_PORT=3306
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+
+volumes:
+  mariadb_data:
+  static_volume:
+  media_volume: 
