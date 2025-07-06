@@ -1,0 +1,3 @@
+# Assets
+
+Chứa các file tĩnh như images, styles, fonts... 
