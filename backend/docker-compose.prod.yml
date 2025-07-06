@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    restart: unless-stopped
+    networks:
+      - sellapp-network
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - sellapp-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - sellapp-network
+
+  # Django Application
+  web:
+    build: .
+    command: gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 myproject.wsgi:application
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=myproject.settings.prod
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - sellapp-network
+    env_file:
+      - .env
+
+  # Celery Worker
+  celery:
+    build: .
+    command: celery -A myproject worker -l info --concurrency=4
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=myproject.settings.prod
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - sellapp-network
+    env_file:
+      - .env
+
+  # Celery Beat
+  celery-beat:
+    build: .
+    command: celery -A myproject beat -l info
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=myproject.settings.prod
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - sellapp-network
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+
+networks:
+  sellapp-network:
+    driver: bridge 
